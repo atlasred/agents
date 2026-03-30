@@ -1,17 +1,16 @@
 {
   "name": "ecommerce-signup-agent",
   "version": "1.0.0",
-  "description": "LangChain.js + Playwright agent to create demo e-commerce accounts",
+  "description": "Playwright agent to create demo e-commerce accounts",
   "type": "module",
   "scripts": {
-    "check": "node --check customer-agents/signup-agent.js",
-    "start": "node customer-agents/signup-agent.js"
+    "check": "node --check customer-agents/signup-agent.js && node --check customer-agents/signin-agent.js",
+    "start": "npm run start:signup",
+    "start:signup": "node customer-agents/signup-agent.js",
+    "start:signin": "node customer-agents/signin-agent.js"
   },
   "dependencies": {
-    "@langchain/ollama": "^0.2.0",
     "dotenv": "^16.6.1",
-    "langchain": "^0.3.36",
-    "playwright": "^1.55.0",
-    "zod": "^3.25.76"
+    "playwright": "^1.55.0"
   }
 }

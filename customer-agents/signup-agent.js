@@ -3,22 +3,13 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
-import { tool } from "langchain";
-import { ChatOllama } from "@langchain/ollama";
-import { createToolCallingAgent, AgentExecutor } from "langchain/agents";
-import { ChatPromptTemplate } from "@langchain/core/prompts";
-import { z } from "zod";
 
 /**
  * Usage example:
- * SIGNUP_URL="https://your-demo-shop.test/register" node customer-agents/signup-agent.js
+ * ACCOUNT_URL="http://localhost:3000/account" node customer-agents/signup-agent.js
  */
 
-const signupUrl = process.env.SIGNUP_URL;
-if (!signupUrl) {
-  throw new Error("Missing SIGNUP_URL. Example: SIGNUP_URL=https://demo-shop.test/register");
-}
-
+const accountUrl = process.env.ACCOUNT_URL ?? process.env.SIGNUP_URL ?? "http://localhost:3000/account";
 const customerCount = Number(process.env.CUSTOMER_COUNT ?? 20);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dataDir = path.join(__dirname, "data");
@@ -37,16 +28,8 @@ function generateCustomer(index) {
 
   return {
     customerId: id,
-    signUp: {
-      name,
-      phoneNumber,
-      homeAddress,
-      password
-    },
-    signIn: {
-      phoneNumber,
-      password
-    }
+    signUp: { name, phoneNumber, homeAddress, password },
+    signIn: { phoneNumber, password }
   };
 }
 
@@ -59,152 +42,125 @@ async function loadOrCreateCustomers(count) {
       return existing.slice(0, count);
     }
   } catch {
-    // no existing file or invalid format; regenerate below
+    // regenerate below
   }
 
-  const customers = Array.from({ length: count }, (_, index) => generateCustomer(index));
+  const customers = Array.from({ length: count }, (_, i) => generateCustomer(i));
   await fs.writeFile(customersPath, JSON.stringify(customers, null, 2));
   return customers;
+}
+
+async function fillFirstAvailable(page, value, selectors) {
+  for (const selector of selectors) {
+    const locator = page.locator(selector).first();
+    if ((await locator.count()) > 0 && (await locator.isVisible().catch(() => false))) {
+      await locator.fill(value);
+      return selector;
+    }
+  }
+  return null;
+}
+
+async function clickFirstAvailable(page, selectors) {
+  for (const selector of selectors) {
+    const locator = page.locator(selector).first();
+    if ((await locator.count()) > 0 && (await locator.isVisible().catch(() => false))) {
+      await locator.click();
+      return selector;
+    }
+  }
+  return null;
+}
+
+async function ensureSignUpMode(page) {
+  const selected = await clickFirstAvailable(page, [
+    "button:has-text('Sign Up')",
+    "button:has-text('Signup')",
+    "a:has-text('Sign Up')",
+    "a:has-text('Signup')",
+    "[role='tab']:has-text('Sign Up')"
+  ]);
+
+  await page.waitForTimeout(300);
+  return selected ?? "signup toggle not found (continued with visible form)";
+}
+
+async function signUpCustomer(page, profile) {
+  await page.goto(accountUrl, { waitUntil: "domcontentloaded" });
+  const signUpModeToggle = await ensureSignUpMode(page);
+
+  const used = {};
+  used.name = await fillFirstAvailable(page, profile.name, [
+    "input[name='name']",
+    "input[name='fullName']",
+    "#name",
+    "#fullName",
+    "input[placeholder*='Name']"
+  ]);
+  used.phoneNumber = await fillFirstAvailable(page, profile.phoneNumber, [
+    "input[name='phoneNumber']",
+    "input[name='phone']",
+    "#phoneNumber",
+    "#phone",
+    "input[type='tel']",
+    "input[placeholder*='Phone']"
+  ]);
+  used.homeAddress = await fillFirstAvailable(page, profile.homeAddress, [
+    "input[name='homeAddress']",
+    "input[name='address']",
+    "textarea[name='homeAddress']",
+    "textarea[name='address']",
+    "#homeAddress",
+    "#address",
+    "input[placeholder*='Address']"
+  ]);
+  used.password = await fillFirstAvailable(page, profile.password, [
+    "input[name='password']",
+    "#password",
+    "input[type='password']"
+  ]);
+
+  const submittedWith = await clickFirstAvailable(page, [
+    "button[type='submit']",
+    "input[type='submit']",
+    "button:has-text('Sign Up')",
+    "button:has-text('Signup')",
+    "button:has-text('Create account')",
+    "button:has-text('Register')"
+  ]);
+
+  if (!submittedWith) {
+    throw new Error("Could not find a signup submit button on /account page");
+  }
+
+  await page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
+
+  const content = (await page.content()).toLowerCase();
+  const url = page.url();
+  const successHints = ["welcome", "account", "verify", "dashboard", "success"];
+  const matched = successHints.filter((h) => content.includes(h));
+
+  return {
+    accountUrl,
+    signUpModeToggle,
+    usedSelectors: used,
+    submittedWith,
+    postSubmitUrl: url,
+    successHints: matched
+  };
 }
 
 const browser = await chromium.launch({ headless: process.env.HEADLESS !== "false" });
 const context = await browser.newContext();
 const page = await context.newPage();
 
-const openSignupPage = tool(
-  async () => {
-    await page.goto(signupUrl, { waitUntil: "domcontentloaded" });
-    return `Opened signup page: ${signupUrl}`;
-  },
-  {
-    name: "open_signup_page",
-    description: "Open the e-commerce signup page in the browser",
-    schema: z.object({})
-  }
-);
-
-const fillSignupForm = tool(
-  async ({ name, phoneNumber, homeAddress, password }) => {
-    const selectors = {
-      name: ["input[name='name']", "#name", "input[name='fullName']", "#fullName"],
-      phoneNumber: ["input[name='phone']", "input[type='tel']", "#phone", "#phoneNumber"],
-      homeAddress: ["input[name='address']", "#address", "textarea[name='address']", "#homeAddress"],
-      password: ["input[type='password']", "input[name='password']", "#password"]
-    };
-
-    async function fillFirstAvailable(value, options) {
-      for (const selector of options) {
-        const locator = page.locator(selector).first();
-        if ((await locator.count()) > 0) {
-          await locator.fill(value);
-          return selector;
-        }
-      }
-      return null;
-    }
-
-    const used = {};
-    used.name = await fillFirstAvailable(name, selectors.name);
-    used.phoneNumber = await fillFirstAvailable(phoneNumber, selectors.phoneNumber);
-    used.homeAddress = await fillFirstAvailable(homeAddress, selectors.homeAddress);
-    used.password = await fillFirstAvailable(password, selectors.password);
-
-    return `Form filled with selectors: ${JSON.stringify(used)}`;
-  },
-  {
-    name: "fill_signup_form",
-    description: "Fill signup fields: name, phone number, home address, and password",
-    schema: z.object({
-      name: z.string(),
-      phoneNumber: z.string(),
-      homeAddress: z.string(),
-      password: z.string().min(8)
-    })
-  }
-);
-
-const submitForm = tool(
-  async () => {
-    const submitSelectors = [
-      "button[type='submit']",
-      "input[type='submit']",
-      "button:has-text('Create account')",
-      "button:has-text('Sign up')",
-      "button:has-text('Register')"
-    ];
-
-    for (const selector of submitSelectors) {
-      const locator = page.locator(selector).first();
-      if ((await locator.count()) > 0) {
-        await locator.click();
-        await page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
-        return `Clicked submit with selector: ${selector}`;
-      }
-    }
-
-    throw new Error("Could not find a submit button");
-  },
-  {
-    name: "submit_form",
-    description: "Submit the signup form",
-    schema: z.object({})
-  }
-);
-
-const verifySuccess = tool(
-  async () => {
-    const content = await page.content();
-    const url = page.url();
-
-    const successHints = ["welcome", "account", "verify", "dashboard", "success"];
-    const lowered = content.toLowerCase();
-    const matched = successHints.filter((h) => lowered.includes(h));
-
-    return `Post-submit URL: ${url}. Success hints found: ${matched.join(", ") || "none"}.`;
-  },
-  {
-    name: "verify_signup_success",
-    description: "Check whether signup appears successful",
-    schema: z.object({})
-  }
-);
-
-const tools = [openSignupPage, fillSignupForm, submitForm, verifySuccess];
-const model = new ChatOllama({
-  model: process.env.OLLAMA_MODEL ?? "qwen2.5:7b",
-  baseUrl: process.env.OLLAMA_BASE_URL ?? "http://127.0.0.1:11434",
-  temperature: 0
-});
-
-const prompt = ChatPromptTemplate.fromMessages([
-  [
-    "system",
-    "You are a browser automation agent for a demo e-commerce site. " +
-      "Only perform signup actions. Never attempt login bypasses or security testing. " +
-      "Use tools in order: open page, fill form, submit, verify."
-  ],
-  ["human", "Create one account with this profile: {profile}"],
-  ["placeholder", "{agent_scratchpad}"]
-]);
-
-const agent = await createToolCallingAgent({ llm: model, tools, prompt });
-const executor = new AgentExecutor({ agent, tools, verbose: true });
-
 const customers = await loadOrCreateCustomers(customerCount);
 const results = [];
 
 try {
   for (const customer of customers) {
-    const result = await executor.invoke({
-      profile: JSON.stringify(customer.signUp)
-    });
-
-    results.push({
-      customerId: customer.customerId,
-      signIn: customer.signIn,
-      output: result.output
-    });
-
+    const output = await signUpCustomer(page, customer.signUp);
+    results.push({ customerId: customer.customerId, signIn: customer.signIn, output });
     console.log(`Completed signup attempt for ${customer.customerId} (${customer.signUp.phoneNumber})`);
   }
 
