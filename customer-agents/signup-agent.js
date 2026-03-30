@@ -50,20 +50,9 @@ async function loadOrCreateCustomers(count) {
   return customers;
 }
 
-async function fillFirstAvailable(page, value, selectors) {
+async function clickFirstAvailable(scope, selectors) {
   for (const selector of selectors) {
-    const locator = page.locator(selector).first();
-    if ((await locator.count()) > 0 && (await locator.isVisible().catch(() => false))) {
-      await locator.fill(value);
-      return selector;
-    }
-  }
-  return null;
-}
-
-async function clickFirstAvailable(page, selectors) {
-  for (const selector of selectors) {
-    const locator = page.locator(selector).first();
+    const locator = scope.locator(selector).first();
     if ((await locator.count()) > 0 && (await locator.isVisible().catch(() => false))) {
       await locator.click();
       return selector;
@@ -72,7 +61,18 @@ async function clickFirstAvailable(page, selectors) {
   return null;
 }
 
-async function ensureSignUpMode(page) {
+async function fillFirstAvailable(scope, value, selectors) {
+  for (const selector of selectors) {
+    const locator = scope.locator(selector).first();
+    if ((await locator.count()) > 0 && (await locator.isVisible().catch(() => false))) {
+      await locator.fill(value);
+      return selector;
+    }
+  }
+  return null;
+}
+
+async function activateSignUpPanel(page) {
   const selected = await clickFirstAvailable(page, [
     "button:has-text('Sign Up')",
     "button:has-text('Signup')",
@@ -82,22 +82,48 @@ async function ensureSignUpMode(page) {
   ]);
 
   await page.waitForTimeout(300);
-  return selected ?? "signup toggle not found (continued with visible form)";
+  return selected ?? "signup toggle not found (continued)";
+}
+
+async function findSignUpForm(page) {
+  const candidates = [
+    "form:has(button:has-text('Create account'))",
+    "form:has(button:has-text('Create Account'))",
+    "form:has(button:has-text('Sign Up'))",
+    "form:has(input[name='homeAddress'])",
+    "form:has(textarea[name='homeAddress'])"
+  ];
+
+  for (const selector of candidates) {
+    const form = page.locator(selector).first();
+    if ((await form.count()) > 0 && (await form.isVisible().catch(() => false))) {
+      return { form, selector };
+    }
+  }
+
+  // fallback to the visible form containing a password field
+  const fallback = page.locator("form:has(input[type='password'])").first();
+  if ((await fallback.count()) > 0 && (await fallback.isVisible().catch(() => false))) {
+    return { form: fallback, selector: "form:has(input[type='password'])" };
+  }
+
+  throw new Error("Could not find a visible signup form panel");
 }
 
 async function signUpCustomer(page, profile) {
   await page.goto(accountUrl, { waitUntil: "domcontentloaded" });
-  const signUpModeToggle = await ensureSignUpMode(page);
+  const panelToggle = await activateSignUpPanel(page);
+  const { form, selector: formSelector } = await findSignUpForm(page);
 
   const used = {};
-  used.name = await fillFirstAvailable(page, profile.name, [
+  used.name = await fillFirstAvailable(form, profile.name, [
     "input[name='name']",
     "input[name='fullName']",
     "#name",
     "#fullName",
     "input[placeholder*='Name']"
   ]);
-  used.phoneNumber = await fillFirstAvailable(page, profile.phoneNumber, [
+  used.phoneNumber = await fillFirstAvailable(form, profile.phoneNumber, [
     "input[name='phoneNumber']",
     "input[name='phone']",
     "#phoneNumber",
@@ -105,7 +131,7 @@ async function signUpCustomer(page, profile) {
     "input[type='tel']",
     "input[placeholder*='Phone']"
   ]);
-  used.homeAddress = await fillFirstAvailable(page, profile.homeAddress, [
+  used.homeAddress = await fillFirstAvailable(form, profile.homeAddress, [
     "input[name='homeAddress']",
     "input[name='address']",
     "textarea[name='homeAddress']",
@@ -114,23 +140,24 @@ async function signUpCustomer(page, profile) {
     "#address",
     "input[placeholder*='Address']"
   ]);
-  used.password = await fillFirstAvailable(page, profile.password, [
+  used.password = await fillFirstAvailable(form, profile.password, [
     "input[name='password']",
     "#password",
     "input[type='password']"
   ]);
 
-  const submittedWith = await clickFirstAvailable(page, [
+  const submittedWith = await clickFirstAvailable(form, [
+    "button:has-text('Create account')",
+    "button:has-text('Create Account')",
     "button[type='submit']",
     "input[type='submit']",
     "button:has-text('Sign Up')",
     "button:has-text('Signup')",
-    "button:has-text('Create account')",
     "button:has-text('Register')"
   ]);
 
   if (!submittedWith) {
-    throw new Error("Could not find a signup submit button on /account page");
+    throw new Error("Could not find a signup submit button (Create account) in the signup panel");
   }
 
   await page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
@@ -142,7 +169,8 @@ async function signUpCustomer(page, profile) {
 
   return {
     accountUrl,
-    signUpModeToggle,
+    panelToggle,
+    formSelector,
     usedSelectors: used,
     submittedWith,
     postSubmitUrl: url,

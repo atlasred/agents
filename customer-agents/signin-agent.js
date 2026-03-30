@@ -14,9 +14,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const customersPath = path.join(__dirname, "data", "customers.json");
 const maxCustomers = Number(process.env.CUSTOMER_COUNT ?? 20);
 
-async function clickFirstAvailable(page, selectors) {
+async function clickFirstAvailable(scope, selectors) {
   for (const selector of selectors) {
-    const locator = page.locator(selector).first();
+    const locator = scope.locator(selector).first();
     if ((await locator.count()) > 0 && (await locator.isVisible().catch(() => false))) {
       await locator.click();
       return selector;
@@ -25,9 +25,9 @@ async function clickFirstAvailable(page, selectors) {
   return null;
 }
 
-async function fillFirstAvailable(page, value, selectors) {
+async function fillFirstAvailable(scope, value, selectors) {
   for (const selector of selectors) {
-    const locator = page.locator(selector).first();
+    const locator = scope.locator(selector).first();
     if ((await locator.count()) > 0 && (await locator.isVisible().catch(() => false))) {
       await locator.fill(value);
       return selector;
@@ -36,7 +36,7 @@ async function fillFirstAvailable(page, value, selectors) {
   return null;
 }
 
-async function ensureSignInMode(page) {
+async function activateSignInPanel(page) {
   const selected = await clickFirstAvailable(page, [
     "button:has-text('Sign In')",
     "button:has-text('Signin')",
@@ -46,7 +46,30 @@ async function ensureSignInMode(page) {
   ]);
 
   await page.waitForTimeout(300);
-  return selected ?? "signin toggle not found (continued with visible form)";
+  return selected ?? "signin toggle not found (continued)";
+}
+
+async function findSignInForm(page) {
+  const candidates = [
+    "form:has(button:has-text('Sign In'))",
+    "form:has(button:has-text('Signin'))",
+    "form:has(button:has-text('Login'))",
+    "form:has(button:has-text('Log In'))"
+  ];
+
+  for (const selector of candidates) {
+    const form = page.locator(selector).first();
+    if ((await form.count()) > 0 && (await form.isVisible().catch(() => false))) {
+      return { form, selector };
+    }
+  }
+
+  const fallback = page.locator("form:has(input[type='password'])").first();
+  if ((await fallback.count()) > 0 && (await fallback.isVisible().catch(() => false))) {
+    return { form: fallback, selector: "form:has(input[type='password'])" };
+  }
+
+  throw new Error("Could not find a visible sign-in form panel");
 }
 
 async function loadCustomers() {
@@ -62,10 +85,11 @@ async function loadCustomers() {
 
 async function signInCustomer(page, customer) {
   await page.goto(accountUrl, { waitUntil: "domcontentloaded" });
-  const signInModeToggle = await ensureSignInMode(page);
+  const panelToggle = await activateSignInPanel(page);
+  const { form, selector: formSelector } = await findSignInForm(page);
 
   const used = {};
-  used.phoneNumber = await fillFirstAvailable(page, customer.signIn.phoneNumber, [
+  used.phoneNumber = await fillFirstAvailable(form, customer.signIn.phoneNumber, [
     "input[name='phoneNumber']",
     "input[name='phone']",
     "#phoneNumber",
@@ -73,23 +97,23 @@ async function signInCustomer(page, customer) {
     "input[type='tel']",
     "input[placeholder*='Phone']"
   ]);
-  used.password = await fillFirstAvailable(page, customer.signIn.password, [
+  used.password = await fillFirstAvailable(form, customer.signIn.password, [
     "input[name='password']",
     "#password",
     "input[type='password']"
   ]);
 
-  const submittedWith = await clickFirstAvailable(page, [
-    "button[type='submit']",
-    "input[type='submit']",
+  const submittedWith = await clickFirstAvailable(form, [
     "button:has-text('Sign In')",
     "button:has-text('Signin')",
     "button:has-text('Login')",
-    "button:has-text('Log In')"
+    "button:has-text('Log In')",
+    "button[type='submit']",
+    "input[type='submit']"
   ]);
 
   if (!submittedWith) {
-    throw new Error("Could not find a sign-in submit button on /account page");
+    throw new Error("Could not find a sign-in submit button in the sign-in panel");
   }
 
   await page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
@@ -101,7 +125,8 @@ async function signInCustomer(page, customer) {
 
   return {
     accountUrl,
-    signInModeToggle,
+    panelToggle,
+    formSelector,
     usedSelectors: used,
     submittedWith,
     postSubmitUrl: url,

@@ -8,8 +8,9 @@ This project provides a **Playwright-based** agent that can create accounts on a
 2. Generates and persists 20 customer profiles by default (configurable).
 3. Fills signup fields: name, phone number, home address, password.
 4. Submits the form.
-5. Checks for basic success hints.
-6. Reuses saved profiles for sign-in automation with a dedicated sign-in agent.
+5. Clicks the `Create account` button inside the sign-up panel only.
+6. Checks for basic success hints.
+7. Reuses saved profiles for sign-in automation with a dedicated sign-in agent.
 
 ## Requirements
 
