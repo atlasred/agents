@@ -4,14 +4,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { tool } from "langchain";
-import { ChatOpenAI } from "@langchain/openai";
+import { ChatOllama } from "@langchain/ollama";
 import { createToolCallingAgent, AgentExecutor } from "langchain/agents";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { z } from "zod";
 
 /**
  * Usage example:
- * SIGNUP_URL="https://your-demo-shop.test/register" OPENAI_API_KEY="..." node customer-agents/signup-agent.js
+ * SIGNUP_URL="https://your-demo-shop.test/register" node customer-agents/signup-agent.js
  */
 
 const signupUrl = process.env.SIGNUP_URL;
@@ -170,7 +170,11 @@ const verifySuccess = tool(
 );
 
 const tools = [openSignupPage, fillSignupForm, submitForm, verifySuccess];
-const model = new ChatOpenAI({ model: process.env.OPENAI_MODEL ?? "gpt-4o-mini", temperature: 0 });
+const model = new ChatOllama({
+  model: process.env.OLLAMA_MODEL ?? "qwen2.5:7b",
+  baseUrl: process.env.OLLAMA_BASE_URL ?? "http://127.0.0.1:11434",
+  temperature: 0
+});
 
 const prompt = ChatPromptTemplate.fromMessages([
   [

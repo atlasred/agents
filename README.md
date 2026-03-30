@@ -13,28 +13,31 @@ This project provides a **LangChain.js + Playwright** agent that can create an a
 ## Requirements
 
 - Node.js 20+
-- An OpenAI API key
+- Ollama running locally (`http://127.0.0.1:11434` by default)
 
 ## Setup
 
 ```bash
 npm install
 npx playwright install chromium
+
+# install/start Ollama separately, then pull a local model
+ollama pull qwen2.5:7b
 ```
 
 ## Run
 
 ```bash
-export OPENAI_API_KEY="your_key"
 export SIGNUP_URL="https://your-demo-site.test/register"
 export CUSTOMER_COUNT="20"
+export OLLAMA_MODEL="qwen2.5:7b"
 node customer-agents/signup-agent.js
 ```
 
 Optional:
 
 ```bash
-export OPENAI_MODEL="gpt-4o-mini"
+export OLLAMA_BASE_URL="http://127.0.0.1:11434"
 export HEADLESS="false"
 
 # profiles are saved to customer-agents/data/customers.json
