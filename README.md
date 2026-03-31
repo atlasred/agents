@@ -5,7 +5,7 @@ This project provides a **Playwright-based** agent that can create accounts on a
 ## What it does
 
 1. Opens your account page (default: `http://localhost:3000/account`) and switches to Sign Up mode.
-2. Generates and persists 20 customer profiles by default (configurable).
+2. Generates and persists 20 realistic customer profiles by default (configurable).
 3. Fills signup fields: name, phone number, home address, password.
 4. Submits the form.
 5. Clicks the `Create account` button inside the sign-up panel only.
@@ -78,6 +78,17 @@ node admin-agents/analytics-agent.js
 ```
 
 This saves `admin-agents/analytics-capture.json`, which compares admin metrics with the simulated spectrum report.
+
+### 5) Generate 20 spectrum CSV files + expected results
+
+```bash
+export CUSTOMER_COUNT="20"
+node customer-agents/generate-spectrum-csv.js
+```
+
+Outputs:
+- per-customer metric files in `customer-agents/data/spectrum-csv/`
+- expected aggregate table at `customer-agents/data/spectrum-csv/expected-results.csv`
 
 Optional:
 

@@ -19,12 +19,18 @@ function randomDigits(n) {
   return Array.from({ length: n }, () => Math.floor(Math.random() * 10)).join("");
 }
 
+const firstNames = ["Olivia", "Noah", "Emma", "Liam", "Ava", "Elijah", "Sophia", "Mateo", "Mia", "Lucas", "Amelia", "Ethan", "Harper", "James", "Evelyn", "Benjamin", "Charlotte", "Henry", "Isabella", "Jack"];
+const lastNames = ["Johnson", "Williams", "Brown", "Davis", "Miller", "Wilson", "Moore", "Taylor", "Anderson", "Thomas", "Martinez", "Garcia", "Clark", "Lewis", "Walker", "Hall", "Allen", "Young", "King", "Wright"];
+const streets = ["Maple Ave", "Oak Street", "Cedar Lane", "Pine Drive", "Willow Court", "Lakeview Blvd", "Sunset Road", "River Park Way", "Highland Ave", "Parkside Dr"];
+
 function generateCustomer(index) {
   const id = `cust-${String(index + 1).padStart(3, "0")}`;
-  const name = `Demo Customer ${index + 1}`;
+  const firstName = firstNames[index % firstNames.length];
+  const lastName = lastNames[index % lastNames.length];
+  const name = `${firstName} ${lastName}`;
   const phoneNumber = `555${String(index + 1).padStart(3, "0")}${randomDigits(4)}`;
-  const password = `DemoPass!${index + 1}A`;
-  const homeAddress = `${100 + index} Market Street, Test City, TS 900${String(index).padStart(2, "0")}`;
+  const password = `Shopper!${index + 1}A`;
+  const homeAddress = `${100 + index} ${streets[index % streets.length]}, Springfield, IL 627${String(index % 10)}${String((index + 3) % 10)}`;
 
   return {
     customerId: id,
@@ -33,13 +39,17 @@ function generateCustomer(index) {
   };
 }
 
+
 async function loadOrCreateCustomers(count) {
   await fs.mkdir(dataDir, { recursive: true });
 
   try {
     const existing = JSON.parse(await fs.readFile(customersPath, "utf8"));
     if (Array.isArray(existing) && existing.length >= count) {
-      return existing.slice(0, count);
+      const hasDemoNames = existing.slice(0, count).some((c) => (c?.signUp?.name ?? "").toLowerCase().includes("demo"));
+      if (!hasDemoNames) {
+        return existing.slice(0, count);
+      }
     }
   } catch {
     // regenerate below

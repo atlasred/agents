@@ -4,13 +4,14 @@
   "description": "Playwright agent to create demo e-commerce accounts",
   "type": "module",
   "scripts": {
-    "check": "node --check customer-agents/signup-agent.js && node --check customer-agents/signin-agent.js && node --check customer-agents/behavior-agent.js && node --check customer-agents/first-test-agent.js && node --check admin-agents/analytics-agent.js",
+    "check": "node --check customer-agents/signup-agent.js && node --check customer-agents/signin-agent.js && node --check customer-agents/behavior-agent.js && node --check customer-agents/first-test-agent.js && node --check customer-agents/generate-spectrum-csv.js && node --check admin-agents/analytics-agent.js",
     "start": "npm run start:signup",
     "start:signup": "node customer-agents/signup-agent.js",
     "start:signin": "node customer-agents/signin-agent.js",
     "start:behavior": "node customer-agents/behavior-agent.js",
     "start:admin-analytics": "node admin-agents/analytics-agent.js",
-    "start:first-test": "node customer-agents/first-test-agent.js"
+    "start:first-test": "node customer-agents/first-test-agent.js",
+    "start:generate-csv": "node customer-agents/generate-spectrum-csv.js"
   },
   "dependencies": {
     "dotenv": "^16.6.1",
