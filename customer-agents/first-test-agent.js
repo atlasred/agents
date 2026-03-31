@@ -11,19 +11,22 @@ const categoryUrl = process.env.CATEGORY_URL ?? `${baseUrl}/category/all`;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dataDir = path.join(__dirname, "data");
 const firstTestReportPath = path.join(dataDir, "first-test-report.json");
+const customersPath = path.join(dataDir, "customers.json");
 
-function randomDigits(n) {
-  return Array.from({ length: n }, () => Math.floor(Math.random() * 10)).join("");
-}
+async function loadFirstCustomer() {
+  const raw = await fs.readFile(customersPath, "utf8");
+  const customers = JSON.parse(raw);
 
-function generateCustomer() {
-  const suffix = Date.now().toString().slice(-6);
-  return {
-    name: `First Test ${suffix}`,
-    phoneNumber: `555${randomDigits(7)}`,
-    homeAddress: `${100 + Number(suffix[0] ?? 1)} Test Street, Demo City`,
-    password: `DemoPass!${suffix}A`
-  };
+  if (!Array.isArray(customers) || customers.length === 0) {
+    throw new Error(`No customers found in ${customersPath}. Run signup-agent first.`);
+  }
+
+  const first = customers[0];
+  if (!first?.signUp || !first?.signIn) {
+    throw new Error(`Invalid customer schema in ${customersPath}. Expected signUp/signIn.`);
+  }
+
+  return first;
 }
 
 async function clickFirstAvailable(scope, selectors) {
@@ -49,7 +52,8 @@ async function fillFirstAvailable(scope, value, selectors) {
 }
 
 async function runFirstTest(page) {
-  const customer = generateCustomer();
+  const customerRecord = await loadFirstCustomer();
+  const customer = customerRecord.signUp;
 
   await page.goto(accountUrl, { waitUntil: "domcontentloaded" });
   const panelToggle = await clickFirstAvailable(page, [
@@ -104,6 +108,7 @@ async function runFirstTest(page) {
     createAccountSelector,
     viewSelector,
     addToCartSelector,
+    customerId: customerRecord.customerId,
     customer,
     finalUrl: page.url()
   };

@@ -37,7 +37,7 @@ export CATEGORY_URL="http://localhost:3000/category/all"
 node customer-agents/first-test-agent.js
 ```
 
-This runs: **sign up → category → view item → add to cart** and saves `customer-agents/data/first-test-report.json`.
+This runs: **sign up → category → view item → add to cart** using the **first customer in `customer-agents/data/customers.json`** and saves `customer-agents/data/first-test-report.json`.
 
 ### 1) Create accounts (Sign Up agent)
 

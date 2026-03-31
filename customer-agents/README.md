@@ -2,7 +2,7 @@
 
 This folder contains customer-facing automations for your demo e-commerce environment:
 
-- `first-test-agent.js`: one-shot test flow (sign up -> category -> view item -> add to cart, no payment)
+- `first-test-agent.js`: one-shot test flow (sign up -> category -> view item -> add to cart, no payment) using first record in `data/customers.json`
 - `signup-agent.js`: creates customer accounts and saves profile credentials to `data/customers.json`
 - `signin-agent.js`: signs into existing customer accounts using saved credentials
 - `behavior-agent.js`: runs behavior spectrum flows (sign in → category browse → add to cart → payment) and writes `data/behavior-report.json`
