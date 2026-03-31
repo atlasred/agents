@@ -1,0 +1,19 @@
+{
+  "name": "ecommerce-signup-agent",
+  "version": "1.0.0",
+  "description": "Playwright agent to create demo e-commerce accounts",
+  "type": "module",
+  "scripts": {
+    "check": "node --check customer-agents/signup-agent.js && node --check customer-agents/signin-agent.js && node --check customer-agents/behavior-agent.js && node --check customer-agents/first-test-agent.js && node --check admin-agents/analytics-agent.js",
+    "start": "npm run start:signup",
+    "start:signup": "node customer-agents/signup-agent.js",
+    "start:signin": "node customer-agents/signin-agent.js",
+    "start:behavior": "node customer-agents/behavior-agent.js",
+    "start:admin-analytics": "node admin-agents/analytics-agent.js",
+    "start:first-test": "node customer-agents/first-test-agent.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.6.1",
+    "playwright": "^1.55.0"
+  }
+}
