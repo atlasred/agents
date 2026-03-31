@@ -11,6 +11,8 @@ This project provides a **Playwright-based** agent that can create accounts on a
 5. Clicks the `Create account` button inside the sign-up panel only.
 6. Checks for basic success hints.
 7. Reuses saved profiles for sign-in automation with a dedicated sign-in agent.
+8. Runs behavior variations (window shopper, bargain hunter, standard buyer, impulse buyer) across category/cart/payment.
+9. Captures admin analytics and infers behavior spectrum from tracked metrics.
 
 ## Requirements
 
@@ -26,6 +28,16 @@ npx playwright install chromium
 ```
 
 ## Run
+
+### 0) First test flow (no payment)
+
+```bash
+export ACCOUNT_URL="http://localhost:3000/account"
+export CATEGORY_URL="http://localhost:3000/category/all"
+node customer-agents/first-test-agent.js
+```
+
+This runs: **sign up → category → view item → add to cart** and saves `customer-agents/data/first-test-report.json`.
 
 ### 1) Create accounts (Sign Up agent)
 
@@ -43,7 +55,33 @@ export CUSTOMER_COUNT="20"
 node customer-agents/signin-agent.js
 ```
 
+### 3) Run behavior spectrum flow (sign in → category → cart → payment)
+
+```bash
+export BASE_URL="http://localhost:3000"
+export ACCOUNT_URL="http://localhost:3000/account"
+export CATEGORY_URL="http://localhost:3000/category/all"
+export CHECKOUT_URL="http://localhost:3000/checkout"
+export CUSTOMER_COUNT="20"
+export TEST_CARD_NUMBER="4242 4242 4242 4242"
+node customer-agents/behavior-agent.js
+```
+
+This creates a behavior report at `customer-agents/data/behavior-report.json`.
+
+
+### 4) Capture admin analytics and infer behavior spectrum
+
+```bash
+export ADMIN_URL="http://localhost:3000/admin/"
+node admin-agents/analytics-agent.js
+```
+
+This saves `admin-agents/analytics-capture.json`, which compares admin metrics with the simulated spectrum report.
+
 Optional:
+
+- default test card used by behavior agent: `4242 4242 4242 4242`
 
 ```bash
 export HEADLESS="false"
