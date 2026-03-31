@@ -1,0 +1,15 @@
+metric,value
+"Sessions",1
+"Unique Visitors/Customers",1
+"Product Views",7
+"Add to Cart",5
+"Cart Abandonments",3
+"Checkout Starts",2
+"Completed Purchases",2
+"Repeat Purchase Rate","100%"
+"Avg Session (min)",4.98
+"Avg Logged-in (min)",4.58
+"Login Events",1
+"Logout Events",1
+"Cart → Checkout Rate","40%"
+"Checkout → Purchase Rate","100%"
